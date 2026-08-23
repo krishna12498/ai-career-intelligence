@@ -21,6 +21,10 @@ PARTIAL_THRESHOLD = MIN_MATCH_THRESHOLD
 REQUIRED_WEIGHT = 1.0
 PREFERRED_WEIGHT = 0.5
 
+SKILL_EQUIVALENTS: dict[str, set[str]] = {
+    "sql": {"postgresql", "mysql", "sqlite", "mariadb"},
+}
+
 
 def classify_match(score: float) -> MatchStatus:
     if score >= STRONG_THRESHOLD:
@@ -49,6 +53,12 @@ class MatchingEngine:
             if re.search(r"\b" + re.escape(skill) + r"\b", text, re.IGNORECASE)
         ]
         return " ".join([text, *expansions]) if expansions else text
+
+    @staticmethod
+    def _is_equivalent_skill(job_skill: str, candidate_skill: str) -> bool:
+        job_key = job_skill.casefold().strip()
+        candidate_key = candidate_skill.casefold().strip()
+        return candidate_key in SKILL_EQUIVALENTS.get(job_key, set())
 
     def calculate_similarity(self, resume_text: str, job_skill: str) -> float:
         embeddings = encode_texts([resume_text, job_skill])
@@ -83,8 +93,17 @@ class MatchingEngine:
 
         results: list[SkillMatchResult] = []
         for i, job_skill in enumerate(job_skills):
-            best_index = int(similarity_matrix[i].argmax())
-            best_score = float(similarity_matrix[i][best_index])
+            equivalent_indices = [
+                index
+                for index, candidate_skill in enumerate(candidate_skills)
+                if self._is_equivalent_skill(job_skill, candidate_skill)
+            ]
+            if equivalent_indices:
+                best_index = equivalent_indices[0]
+                best_score = 1.0
+            else:
+                best_index = int(similarity_matrix[i].argmax())
+                best_score = float(similarity_matrix[i][best_index])
             best_candidate = candidate_skills[best_index]
 
             if best_score < MIN_MATCH_THRESHOLD:

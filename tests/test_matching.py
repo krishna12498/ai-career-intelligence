@@ -107,3 +107,16 @@ def test_matching_engine_maps_related_rag_phrases():
 
     assert result.matches[0].similarity >= 0.55
     assert result.matches[0].status.value == "Partial Match"
+
+
+def test_matching_engine_maps_postgresql_to_sql():
+    result = match_skills_only(
+        SkillMatchRequest(
+            candidate_skills=["PostgreSQL"],
+            required_skills=["SQL"],
+        )
+    )
+
+    match = result.matches[0]
+    assert match.candidate_skill == "PostgreSQL"
+    assert match.status.value == "Strong Match"
