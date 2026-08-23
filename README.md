@@ -2,7 +2,7 @@
 
 An AI/ML job-search and career intelligence system: resume parsing, job matching, RAG knowledge base, multi-agent interview prep, and evaluation.
 
-**Phase 3 (current):** ML Job Matching Engine (semantic skill matching + full match report)
+**Phase 4 (current):** Retrieval-only career knowledge base with curated skill resources
 
 ## Tech stack (free-first)
 
@@ -77,7 +77,17 @@ curl -X POST "http://localhost:8000/api/job/analyze" ^
 
 Set `use_semantic: false` in the JSON body to skip embedding-based skill detection (faster, keyword-only).
 
-### 6. Run tests
+### 6. Search the career knowledge base
+
+```bash
+curl -X POST "http://localhost:8000/api/knowledge/search" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"missing_skills\": [\"RAG\", \"Docker\"], \"top_k\": 5}"
+```
+
+The knowledge base uses curated local skill documents, sentence-transformer embeddings, and a persisted FAISS flat index. It is retrieval-only; generated explanations are intentionally deferred.
+
+### 7. Run tests
 
 ```bash
 pytest tests/ -v
@@ -89,8 +99,8 @@ pytest tests/ -v
 |-------|---------|--------|
 | 1 | Resume PDF parser + structured extraction | ✅ |
 | 2 | Job description analyzer (keyword + semantic) | ✅ |
-| 3 | ML semantic matching | 🔜 |
-| 4 | RAG career knowledge base | 🔜 |
+| 3 | ML semantic matching | ✅ |
+| 4 | RAG career knowledge base | ✅ |
 | 5 | Multi-agent system (LangGraph) | 🔜 |
 | 6 | React dashboard | 🔜 |
 | 7 | Evaluation & observability | 🔜 |
@@ -104,6 +114,7 @@ pytest tests/ -v
 | POST | `/api/resume/parse` | Upload PDF → structured JSON |
 | POST | `/api/resume/parse-text` | Paste text → structured JSON |
 | POST | `/api/job/analyze` | Analyze JD → structured requirements |
+| POST | `/api/knowledge/search` | Retrieve career resources for skills or queries |
 
 ## License
 

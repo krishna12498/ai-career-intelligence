@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.job import router as job_router
+from backend.app.api.knowledge import router as knowledge_router
 from backend.app.api.match import router as match_router
 from backend.app.api.resume import router as resume_router
 from backend.app.config import settings
@@ -22,6 +23,7 @@ app.add_middleware(
 
 app.include_router(resume_router, prefix="/api")
 app.include_router(job_router, prefix="/api")
+app.include_router(knowledge_router, prefix="/api")
 app.include_router(match_router, prefix="/api")
 
 
@@ -36,6 +38,7 @@ async def root():
             "parse_pdf": "POST /api/resume/parse",
             "parse_text": "POST /api/resume/parse-text",
             "analyze_job": "POST /api/job/analyze",
+            "knowledge_search": "POST /api/knowledge/search",
             "match_skills": "POST /api/match/skills",
             "match": "POST /api/match",
             "match_from_text": "POST /api/match/from-text",
