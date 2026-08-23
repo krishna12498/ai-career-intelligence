@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Data & uploads
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Env
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# ML models (downloaded at runtime)
+models/*
+!models/.gitkeep
