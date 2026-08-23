@@ -95,3 +95,15 @@ def test_matching_engine_text_similarity():
     engine = MatchingEngine()
     sim = engine.text_similarity("Python developer", "Python programming engineer")
     assert sim > 0.7
+
+
+def test_matching_engine_maps_related_rag_phrases():
+    result = match_skills_only(
+        SkillMatchRequest(
+            candidate_skills=["vector search and embeddings"],
+            required_skills=["RAG"],
+        )
+    )
+
+    assert result.matches[0].similarity >= 0.55
+    assert result.matches[0].status.value == "Partial Match"

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import re
 from typing import Optional
 
 from sklearn.metrics.pairwise import cosine_similarity
 
 from backend.app.models.match import MatchStatus, SkillMatchResult
 from ml.embeddings import encode_texts, get_embedding_model
+from ml.semantic_skills import SKILL_CONCEPTS
 
 # Minimum similarity to accept a candidate skill as a real match
 MIN_MATCH_THRESHOLD = 0.55
@@ -38,6 +40,16 @@ class MatchingEngine:
     def __init__(self):
         self._model = get_embedding_model()
 
+    @staticmethod
+    def _expand_skill_text(text: str) -> str:
+        """Add curated concepts so abbreviations and related phrases compare semantically."""
+        expansions = [
+            concept
+            for skill, concept in SKILL_CONCEPTS.items()
+            if re.search(r"\b" + re.escape(skill) + r"\b", text, re.IGNORECASE)
+        ]
+        return " ".join([text, *expansions]) if expansions else text
+
     def calculate_similarity(self, resume_text: str, job_skill: str) -> float:
         embeddings = encode_texts([resume_text, job_skill])
         return float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
@@ -64,8 +76,8 @@ class MatchingEngine:
                 for skill in job_skills
             ]
 
-        candidate_embeddings = encode_texts(candidate_skills)
-        job_embeddings = encode_texts(job_skills)
+        candidate_embeddings = encode_texts([self._expand_skill_text(skill) for skill in candidate_skills])
+        job_embeddings = encode_texts([self._expand_skill_text(skill) for skill in job_skills])
 
         similarity_matrix = cosine_similarity(job_embeddings, candidate_embeddings)
 
