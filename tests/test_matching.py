@@ -120,3 +120,14 @@ def test_matching_engine_maps_postgresql_to_sql():
     match = result.matches[0]
     assert match.candidate_skill == "PostgreSQL"
     assert match.status.value == "Strong Match"
+
+
+def test_matching_engine_matches_selenium_and_test_automation():
+    result = match_skills_only(
+        SkillMatchRequest(
+            candidate_skills=["Selenium", "Test Automation"],
+            required_skills=["Selenium", "Test Automation"],
+        )
+    )
+
+    assert all(match.status.value == "Strong Match" for match in result.matches)

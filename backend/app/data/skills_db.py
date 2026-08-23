@@ -6,6 +6,9 @@ SKILL_CATEGORIES: dict[str, list[str]] = {
         "python", "java", "javascript", "typescript", "c++", "c#", "go", "golang",
         "rust", "scala", "kotlin", "ruby", "php", "swift", "r", "sql", "html", "css",
     ],
+    "testing": [
+        "selenium", "testng", "test automation", "api testing", "testing",
+    ],
     "framework": [
         "react", "next.js", "nextjs", "vue", "angular", "django", "flask", "fastapi",
         "spring", "spring boot", "express", "node.js", "nodejs", "pytorch", "tensorflow",
@@ -32,6 +35,10 @@ SKILL_CATEGORIES: dict[str, list[str]] = {
         "git", "github", "gitlab", "jira", "confluence", "figma", "postman",
         "vscode", "linux", "bash", "nginx", "apache", "cloudinary", "firebase",
         "ollama", "jupyter", "notebook",
+        "excel", "powerpoint", "tableau", "statistics", "data visualization",
+        "infrastructure automation", "monitoring", "cloud platforms",
+        "configuration management", "containerization", "continuous integration",
+        "continuous deployment", "rest apis",
     ],
 }
 
@@ -53,6 +60,8 @@ SKILL_ALIASES: dict[str, str] = {
     "cv": "computer vision",
     "ml": "machine learning",
     "dl": "deep learning",
+    "rest api": "rest apis",
+    "rest": "rest apis",
 }
 
 

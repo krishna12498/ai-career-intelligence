@@ -58,3 +58,25 @@ def test_semantic_detection_does_not_infer_unmentioned_frameworks():
 
     assert "PyTorch" not in all_display
     assert "Mlflow" not in all_display
+
+
+def test_explicit_multiword_requirements_are_preserved():
+    result = analyze_job_description(
+        "Data Analyst. Required: Python, SQL, Data Visualization, Excel. "
+        "Preferred: Tableau, Statistics.",
+        use_semantic=False,
+    )
+
+    assert set(result.required_skills) == {"Data Visualization", "Excel", "Python", "SQL"}
+    assert set(result.preferred_skills) == {"Statistics", "Tableau"}
+
+
+def test_generic_cloud_language_does_not_infer_azure():
+    result = analyze_job_description(
+        "DevOps Engineer. Required: Infrastructure Automation, Monitoring, Cloud Platforms. "
+        "Preferred: Configuration Management.",
+        use_semantic=True,
+    )
+
+    all_display = set(result.required_skills + result.preferred_skills)
+    assert "Azure" not in all_display

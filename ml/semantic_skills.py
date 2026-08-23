@@ -48,8 +48,13 @@ SKILL_CONCEPTS: dict[str, str] = {
 
 SEMANTIC_THRESHOLD = 0.35
 SKILL_THRESHOLDS: dict[str, float] = {
+    "agents": 0.55,
+    "aws": 0.55,
     "mlflow": 0.45,
     "pytorch": 0.45,
+    "azure": 0.55,
+    "kubernetes": 0.55,
+    "reinforcement learning": 0.55,
 }
 
 
