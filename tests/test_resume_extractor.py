@@ -23,6 +23,19 @@ def test_extract_structured_resume():
     assert resume.extraction_metadata["method"] == "rule_based_v1"
 
 
+def test_extract_pipe_delimited_project():
+    resume = extract_structured_resume(
+        normalize_text(
+            "Alex Morgan\n\nProjects\n"
+            "Career match assistant | Built a resume and job matching tool with Python and embeddings."
+        )
+    )
+
+    assert len(resume.projects) == 1
+    assert resume.projects[0].name == "Career match assistant"
+    assert "resume and job matching tool" in (resume.projects[0].description or "")
+
+
 def test_pdf_parser_empty():
     with pytest.raises(PDFParserError):
         extract_text_from_pdf(b"")

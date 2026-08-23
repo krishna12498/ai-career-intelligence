@@ -41,3 +41,20 @@ def test_semantic_skill_detection():
         + result.technologies
     )
     assert any(s.upper() == "RAG" for s in all_display)
+
+
+def test_semantic_detection_does_not_infer_unmentioned_frameworks():
+    result = analyze_job_description(
+        "Junior AI Engineer. Required: Python, FastAPI, SQL, Docker, AWS, machine learning. "
+        "Preferred: LangChain, RAG, LangGraph.",
+        use_semantic=True,
+    )
+    all_display = set(
+        result.required_skills
+        + result.preferred_skills
+        + result.ai_ml_skills
+        + result.technologies
+    )
+
+    assert "PyTorch" not in all_display
+    assert "Mlflow" not in all_display

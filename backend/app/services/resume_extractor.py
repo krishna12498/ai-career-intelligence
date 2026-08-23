@@ -260,6 +260,9 @@ def _parse_projects_section(section_text: str) -> list[Project]:
             continue
 
         name = lines[0]
+        if "|" in name:
+            name, inline_description = [part.strip() for part in name.split("|", 1)]
+            lines = [name, inline_description, *lines[1:]]
         if len(name) > 80:
             continue
 

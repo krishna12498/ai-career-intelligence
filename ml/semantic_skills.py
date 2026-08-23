@@ -47,6 +47,10 @@ SKILL_CONCEPTS: dict[str, str] = {
 }
 
 SEMANTIC_THRESHOLD = 0.35
+SKILL_THRESHOLDS: dict[str, float] = {
+    "mlflow": 0.45,
+    "pytorch": 0.45,
+}
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -94,7 +98,7 @@ def extract_skills_semantic(
         similarities = sentence_embeddings @ concept_emb
         max_sim = float(similarities.max())
 
-        if max_sim >= threshold:
+        if max_sim >= max(threshold, SKILL_THRESHOLDS.get(canonical, 0.0)):
             results.append((canonical, max_sim))
 
     return results
