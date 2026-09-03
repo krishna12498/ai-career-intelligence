@@ -36,6 +36,32 @@ def test_extract_pipe_delimited_project():
     assert "resume and job matching tool" in (resume.projects[0].description or "")
 
 
+def test_extract_undated_experience_with_duration_and_inline_role():
+    resume = extract_structured_resume(
+        normalize_text(
+            "Priya Reddy\n\nExperience — Software Developer\n"
+            "2.5 years of experience building web applications and REST APIs using Python.\n"
+            "Education\nB.Tech Computer Science"
+        )
+    )
+
+    assert len(resume.experience) == 1
+    assert resume.experience[0].title == "Software Developer"
+    assert "2.5 years" in (resume.experience[0].description or "")
+
+
+def test_extract_undated_experience_with_standalone_role():
+    resume = extract_structured_resume(
+        normalize_text(
+            "Priya Reddy\n\nExperience\nTechnical Intern\n"
+            "Worked on SQL queries and basic software testing."
+        )
+    )
+
+    assert len(resume.experience) == 1
+    assert resume.experience[0].title == "Technical Intern"
+
+
 def test_pdf_parser_empty():
     with pytest.raises(PDFParserError):
         extract_text_from_pdf(b"")

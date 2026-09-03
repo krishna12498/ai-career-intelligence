@@ -62,6 +62,9 @@ def _split_sections(text: str) -> dict[str, str]:
         if matched_section:
             current = matched_section
             sections.setdefault(current, [])
+            header_suffix = re.split(r"\s+[-–—:]\s+", stripped, maxsplit=1)
+            if len(header_suffix) == 2 and header_suffix[1].strip():
+                sections[current].append(header_suffix[1].strip())
         else:
             sections.setdefault(current, []).append(stripped)
 
@@ -171,6 +174,22 @@ def _parse_experience_section(section_text: str) -> list[Experience]:
 
     date_indices = [i for i, line in enumerate(lines) if DATE_RANGE_PATTERN.search(line)]
     if not date_indices:
+        if not lines:
+            return experiences
+
+        title = lines[0].lstrip("•-* ")
+        description_lines = [line.lstrip("•-* ") for line in lines[1:]]
+        description = " ".join(description_lines) if description_lines else None
+        block_text = "\n".join(lines)
+        technologies = [s.name for s in _find_skills_in_text(block_text)]
+        experiences.append(
+            Experience(
+                company="Unknown",
+                title=title,
+                description=description,
+                technologies=technologies,
+            )
+        )
         return experiences
 
     for pos, date_idx in enumerate(date_indices):

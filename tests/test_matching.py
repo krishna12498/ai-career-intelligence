@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.models.match import SkillMatchRequest
 from backend.app.services.match_service import match_skills_only
+from backend.app.services.match_service import match_from_text
 from backend.app.services.matching_engine import classify_match, MatchingEngine
 from tests.fixtures.sample_job import SAMPLE_JOB_DESCRIPTION
 from tests.fixtures.sample_resume import SAMPLE_RESUME_TEXT
@@ -131,3 +132,22 @@ def test_matching_engine_matches_selenium_and_test_automation():
     )
 
     assert all(match.status.value == "Strong Match" for match in result.matches)
+
+
+    def test_duration_based_experience_contributes_to_relevance():
+        result = match_from_text(
+        """Priya Reddy
+
+    Experience — Software Developer
+    2.5 years of experience building web applications and REST APIs using Python.
+
+    Education
+    B.Tech Computer Science
+    """,
+        """Software Developer
+    1–3 years of software development experience preferred.
+    """,
+        use_semantic=False,
+        )
+
+        assert result.experience_relevance > 0
