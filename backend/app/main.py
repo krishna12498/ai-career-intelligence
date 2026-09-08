@@ -7,6 +7,7 @@ from backend.app.api.match import router as match_router
 from backend.app.api.resume import router as resume_router
 from backend.app.api.advisor import router as advisor_router
 from backend.app.api.improvement import router as improvement_router
+from backend.app.api.interview import router as interview_router
 from backend.app.config import settings
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.include_router(knowledge_router, prefix="/api")
 app.include_router(match_router, prefix="/api")
 app.include_router(advisor_router, prefix="/api")
 app.include_router(improvement_router, prefix="/api")
+app.include_router(interview_router, prefix="/api")
 
 
 @app.get("/")
@@ -48,6 +50,8 @@ async def root():
             "match_from_text": "POST /api/match/from-text",
             "advisor_explain": "POST /api/advisor/explain",
             "improvement": "POST /api/improvement",
+            "interview_questions": "POST /api/interview/questions",
+            "interview_evaluate": "POST /api/interview/evaluate",
         },
     }
 

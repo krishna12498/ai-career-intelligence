@@ -56,18 +56,42 @@ type ImprovementResult = {
   grounding_policy: string
 }
 
+type InterviewQuestion = {
+  id: string
+  category: string
+  question: string
+  evidence: string[]
+  grounding_note: string
+}
+
+type InterviewEvaluation = {
+  question_id: string
+  score: number
+  strengths: string[]
+  improvements: string[]
+  feedback: string
+  grounding_note: string
+}
+
 function App() {
   const [resume, setResume] = useState('')
   const [job, setJob] = useState('')
   const [match, setMatch] = useState<MatchResult | null>(null)
   const [advisor, setAdvisor] = useState<AdvisorResult | null>(null)
   const [improvement, setImprovement] = useState<ImprovementResult | null>(null)
+  const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestion[]>([])
+  const [selectedQuestion, setSelectedQuestion] = useState<InterviewQuestion | null>(null)
+  const [interviewEvaluation, setInterviewEvaluation] = useState<InterviewEvaluation | null>(null)
+  const [answer, setAnswer] = useState('')
   const [loading, setLoading] = useState(false)
   const [advisorLoading, setAdvisorLoading] = useState(false)
   const [improvementLoading, setImprovementLoading] = useState(false)
+  const [interviewLoading, setInterviewLoading] = useState(false)
+  const [evaluationLoading, setEvaluationLoading] = useState(false)
   const [error, setError] = useState('')
   const [advisorError, setAdvisorError] = useState('')
   const [improvementError, setImprovementError] = useState('')
+  const [interviewError, setInterviewError] = useState('')
 
   const runMatch = async () => {
     if (resume.trim().length < 50 || job.trim().length < 30) {
@@ -80,6 +104,11 @@ function App() {
     setAdvisorError('')
     setImprovement(null)
     setImprovementError('')
+    setInterviewQuestions([])
+    setSelectedQuestion(null)
+    setInterviewEvaluation(null)
+    setAnswer('')
+    setInterviewError('')
     try {
       const response = await fetch(`${API_BASE}/api/match/from-text`, {
         method: 'POST',
@@ -110,6 +139,46 @@ function App() {
       setImprovementError(requestError instanceof Error ? requestError.message : 'Could not build the improvement plan.')
     } finally {
       setImprovementLoading(false)
+    }
+  }
+
+  const prepareInterview = async () => {
+    setInterviewLoading(true)
+    setInterviewError('')
+    try {
+      const response = await fetch(`${API_BASE}/api/interview/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume_text: resume, job_description: job, use_semantic: true, questions_per_category: 2 }),
+      })
+      if (!response.ok) throw new Error('Could not prepare interview questions.')
+      const result = await response.json()
+      setInterviewQuestions(result.questions)
+      setSelectedQuestion(result.questions[0] ?? null)
+      setInterviewEvaluation(null)
+    } catch (requestError) {
+      setInterviewError(requestError instanceof Error ? requestError.message : 'Could not prepare interview questions.')
+    } finally {
+      setInterviewLoading(false)
+    }
+  }
+
+  const evaluateAnswer = async () => {
+    if (!selectedQuestion || !answer.trim()) return
+    setEvaluationLoading(true)
+    setInterviewError('')
+    try {
+      const response = await fetch(`${API_BASE}/api/interview/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: selectedQuestion, answer }),
+      })
+      if (!response.ok) throw new Error('Could not evaluate this answer.')
+      setInterviewEvaluation(await response.json())
+    } catch (requestError) {
+      setInterviewError(requestError instanceof Error ? requestError.message : 'Could not evaluate this answer.')
+    } finally {
+      setEvaluationLoading(false)
     }
   }
 
@@ -176,6 +245,7 @@ function App() {
         <div className="detail-grid"><SkillColumn title="Strong signals" skills={match.strong_skills} tone="strong" /><SkillColumn title="Build confidence" skills={match.partial_skills} tone="partial" /><SkillColumn title="Priority gaps" skills={match.missing_skills} tone="missing" onSkillClick={explainGap} /></div>
         <div className="advisor-panel"><div className="advisor-heading"><span className="advisor-icon">+</span><div><p className="eyebrow">Next move</p><h3>Turn a gap into momentum</h3></div></div>{advisorLoading && <p className="advisor-muted">Advisor is reading the role and your background...</p>}{!advisorLoading && advisorError && <p className="advisor-error" role="alert">{advisorError}</p>}{!advisorLoading && !advisorError && !advisor && <p className="advisor-muted">Select a priority gap above to get a grounded learning plan from your local advisor.</p>}{advisor && <div className="advisor-copy"><p>{advisor.explanation}</p>{advisor.resource && <a href={advisor.resource.url} target="_blank" rel="noreferrer">Open {advisor.resource.title} <span aria-hidden="true">-&gt;</span></a>}</div>}</div>
           <div className="improvement-panel"><div className="results-header"><div><p className="eyebrow">V2 workflow</p><h3>Improve this application</h3></div><button className="text-button" type="button" onClick={buildImprovementPlan} disabled={improvementLoading}>{improvementLoading ? 'Building...' : 'Build plan -&gt;'}</button></div>{improvementError && <p className="advisor-error" role="alert">{improvementError}</p>}{improvement && <><p className="grounding-policy">{improvement.grounding_policy}</p><div className="suggestion-list">{improvement.suggestions.map((suggestion, index) => <article className="suggestion" key={`${suggestion.title}-${index}`}><div className="suggestion-meta"><span>{suggestion.category}</span><b>{suggestion.priority}</b></div><h4>{suggestion.title}</h4><p>{suggestion.action}</p>{suggestion.evidence.length > 0 && <small>Evidence: {suggestion.evidence.join(', ')}</small>}</article>)}</div></>}{!improvement && !improvementError && <p className="advisor-muted">Generate specific, fact-checked resume changes from this analysis.</p>}</div>
+        <div className="coach-panel"><div className="results-header"><div><p className="eyebrow">V2 Step 2</p><h3>Practice for the interview</h3></div><button className="text-button" type="button" onClick={prepareInterview} disabled={interviewLoading}>{interviewLoading ? 'Preparing...' : 'Prepare questions -&gt;'}</button></div>{interviewError && <p className="advisor-error" role="alert">{interviewError}</p>}{interviewQuestions.length > 0 && <><div className="question-list">{interviewQuestions.map((question) => <button className={`question-item ${selectedQuestion?.id === question.id ? 'selected' : ''}`} type="button" key={question.id} onClick={() => { setSelectedQuestion(question); setInterviewEvaluation(null) }}><span>{question.category}</span>{question.question}</button>)}</div>{selectedQuestion && <div className="answer-area"><p className="coach-question">{selectedQuestion.question}</p><textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write your answer..." aria-label="Interview answer" /><button className="primary-button" type="button" onClick={evaluateAnswer} disabled={evaluationLoading || !answer.trim()}>{evaluationLoading ? 'Evaluating...' : 'Evaluate answer -&gt;'}</button></div>}{interviewEvaluation && <div className="evaluation"><strong>{interviewEvaluation.score}% structure score</strong><p>{interviewEvaluation.feedback}</p>{interviewEvaluation.strengths.map((strength) => <p className="evaluation-positive" key={strength}>{strength}</p>)}{interviewEvaluation.improvements.map((improvementItem) => <p className="evaluation-improvement" key={improvementItem}>{improvementItem}</p>)}</div>}</>}{!interviewQuestions.length && !interviewError && <p className="advisor-muted">Generate grounded technical, resume-specific, behavioral, and gap questions.</p>}</div>
       </section>}
       <footer><span>AI Career Intelligence</span><span>Private by default. Powered locally.</span></footer>
     </main>
