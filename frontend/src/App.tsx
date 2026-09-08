@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
 const demoResume = `Alex Morgan
 Python backend engineer with experience building APIs and data products.
@@ -40,15 +40,34 @@ type AdvisorResult = {
   resource?: { title: string; url: string; level: string }
 }
 
+type ImprovementSuggestion = {
+  category: string
+  priority: string
+  title: string
+  action: string
+  evidence: string[]
+  grounding_note: string
+}
+
+type ImprovementResult = {
+  missing_required_skills: string[]
+  missing_preferred_skills: string[]
+  suggestions: ImprovementSuggestion[]
+  grounding_policy: string
+}
+
 function App() {
   const [resume, setResume] = useState('')
   const [job, setJob] = useState('')
   const [match, setMatch] = useState<MatchResult | null>(null)
   const [advisor, setAdvisor] = useState<AdvisorResult | null>(null)
+  const [improvement, setImprovement] = useState<ImprovementResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [advisorLoading, setAdvisorLoading] = useState(false)
+  const [improvementLoading, setImprovementLoading] = useState(false)
   const [error, setError] = useState('')
   const [advisorError, setAdvisorError] = useState('')
+  const [improvementError, setImprovementError] = useState('')
 
   const runMatch = async () => {
     if (resume.trim().length < 50 || job.trim().length < 30) {
@@ -59,6 +78,8 @@ function App() {
     setError('')
     setAdvisor(null)
     setAdvisorError('')
+    setImprovement(null)
+    setImprovementError('')
     try {
       const response = await fetch(`${API_BASE}/api/match/from-text`, {
         method: 'POST',
@@ -71,6 +92,24 @@ function App() {
       setError(requestError instanceof Error ? requestError.message : 'Something went wrong.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const buildImprovementPlan = async () => {
+    setImprovementLoading(true)
+    setImprovementError('')
+    try {
+      const response = await fetch(`${API_BASE}/api/improvement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume_text: resume, job_description: job, use_semantic: true }),
+      })
+      if (!response.ok) throw new Error('Could not build the improvement plan.')
+      setImprovement(await response.json())
+    } catch (requestError) {
+      setImprovementError(requestError instanceof Error ? requestError.message : 'Could not build the improvement plan.')
+    } finally {
+      setImprovementLoading(false)
     }
   }
 
@@ -136,6 +175,7 @@ function App() {
         </div>
         <div className="detail-grid"><SkillColumn title="Strong signals" skills={match.strong_skills} tone="strong" /><SkillColumn title="Build confidence" skills={match.partial_skills} tone="partial" /><SkillColumn title="Priority gaps" skills={match.missing_skills} tone="missing" onSkillClick={explainGap} /></div>
         <div className="advisor-panel"><div className="advisor-heading"><span className="advisor-icon">+</span><div><p className="eyebrow">Next move</p><h3>Turn a gap into momentum</h3></div></div>{advisorLoading && <p className="advisor-muted">Advisor is reading the role and your background...</p>}{!advisorLoading && advisorError && <p className="advisor-error" role="alert">{advisorError}</p>}{!advisorLoading && !advisorError && !advisor && <p className="advisor-muted">Select a priority gap above to get a grounded learning plan from your local advisor.</p>}{advisor && <div className="advisor-copy"><p>{advisor.explanation}</p>{advisor.resource && <a href={advisor.resource.url} target="_blank" rel="noreferrer">Open {advisor.resource.title} <span aria-hidden="true">-&gt;</span></a>}</div>}</div>
+          <div className="improvement-panel"><div className="results-header"><div><p className="eyebrow">V2 workflow</p><h3>Improve this application</h3></div><button className="text-button" type="button" onClick={buildImprovementPlan} disabled={improvementLoading}>{improvementLoading ? 'Building...' : 'Build plan -&gt;'}</button></div>{improvementError && <p className="advisor-error" role="alert">{improvementError}</p>}{improvement && <><p className="grounding-policy">{improvement.grounding_policy}</p><div className="suggestion-list">{improvement.suggestions.map((suggestion, index) => <article className="suggestion" key={`${suggestion.title}-${index}`}><div className="suggestion-meta"><span>{suggestion.category}</span><b>{suggestion.priority}</b></div><h4>{suggestion.title}</h4><p>{suggestion.action}</p>{suggestion.evidence.length > 0 && <small>Evidence: {suggestion.evidence.join(', ')}</small>}</article>)}</div></>}{!improvement && !improvementError && <p className="advisor-muted">Generate specific, fact-checked resume changes from this analysis.</p>}</div>
       </section>}
       <footer><span>AI Career Intelligence</span><span>Private by default. Powered locally.</span></footer>
     </main>
