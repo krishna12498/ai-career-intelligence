@@ -6,7 +6,7 @@ The project is deliberately transparent: the output exposes strong, partial, and
 
 ## Project status
 
-This is a complete V1 production-style prototype: the core pipeline is implemented, tested, and usable locally from the dashboard or API. It is not presented as a fully deployed production product. Deployment, formal evaluation, and several intentionally scoped extensions remain future work.
+This is a local-first V2 career preparation platform: the core pipeline is implemented, tested, and usable locally from the dashboard or API. It is not presented as a fully deployed production product. Deployment, formal benchmarking, and several intentionally scoped extensions remain future work.
 
 The stable matching checkpoint is tagged `matching-v2-stress-tested` at commit `7f0309d`.
 
@@ -19,8 +19,10 @@ flowchart LR
     B --> E[3. Match skills and context]
     D --> E
     E --> F[Match report and prioritized gaps]
-    F --> G[4. Retrieve curated resources]
-    G --> H[5. Grounded advisor explanation]
+    F --> G[4. Grounded improvement plan]
+    F --> H[5. Interview preparation]
+    F --> I[6. Retrieve curated resources]
+    I --> J[7. Optional Ollama advisor explanation]
 ```
 
 ### Five phases
@@ -41,6 +43,7 @@ flowchart LR
 - **Blocking advisor responses** keep the API contract simple and make timeout or unavailable-model errors visible to both the dashboard and callers.
 - **Sentence Transformers plus FAISS** provide local semantic representations and vector retrieval without a hosted search dependency.
 - **Deterministic extraction and matching** handle explicit terms and scoring where predictable behavior matters; LLM generation is used only for the personalized explanation.
+- **Grounded V2 workflows** keep improvement suggestions and interview questions deterministic, traceable to resume/JD evidence, and usable without Ollama.
 - **Direct FAISS and `httpx` integration** keeps retrieval and Ollama calls explicit rather than claiming LangChain orchestration that this project does not use.
 
 ## Stress testing and debugging
@@ -77,14 +80,16 @@ These are bounded backlog items, not unverified failures:
 
 ## Dashboard
 
-The current React dashboard accepts pasted resume text and a pasted job description. After analysis, it displays the match score, supporting signals, strong skills, and priority gaps. Selecting a priority gap retrieves a relevant career resource and sends its context, together with the candidate background, to the local Ollama advisor. PDF resume parsing is available through the API but is not currently wired into the dashboard.
+The current React dashboard accepts pasted resume text and a pasted job description. After analysis, it displays the match score, supporting signals, strong skills, and priority gaps. Users can then build a grounded improvement plan or prepare for an interview with technical, resume-specific, behavioral, and skill-gap questions. Answer feedback evaluates structure and coverage without claiming to verify candidate facts. Selecting a priority gap retrieves a relevant career resource and optionally sends its context, together with the candidate background, to the local Ollama advisor. PDF resume parsing is available through the API but is not currently wired into the dashboard.
 
 ### Demo flow
 
 1. Start the backend and frontend using the instructions below.
 2. Paste resume text and a target job description into the dashboard.
 3. Run the analysis to view the weighted match score, supporting signals, strong skills, and priority gaps.
-4. Select a priority gap to retrieve a curated resource and request grounded learning advice from Ollama.
+4. Build an improvement plan to receive grounded resume actions.
+5. Prepare interview questions, answer one, and review transparent feedback.
+6. Optionally select a priority gap to use the local Ollama advisor.
 
 ## Tech stack
 
@@ -152,7 +157,7 @@ The Vite development server normally runs at http://localhost:5173. The frontend
 python -m pytest tests/ -v
 ```
 
-The current regression baseline is **41 passing tests**. The suite covers resume parsing, job analysis, matching behavior, API routes, RAG documents, and vector-store retrieval.
+The current regression baseline is **49 passing tests**. The suite covers resume parsing, job analysis, matching behavior, grounded improvement and interview workflows, API routes, RAG documents, and vector-store retrieval.
 
 ## API surface
 
@@ -167,6 +172,9 @@ The current regression baseline is **41 passing tests**. The suite covers resume
 | POST | `/api/match/from-text` | Run the complete text-to-report pipeline |
 | POST | `/api/knowledge/search` | Retrieve curated resources |
 | POST | `/api/advisor/explain` | Generate grounded advice for a skill gap |
+| POST | `/api/improvement` | Build a grounded resume improvement plan |
+| POST | `/api/interview/questions` | Generate grounded interview questions |
+| POST | `/api/interview/evaluate` | Evaluate answer structure and evidence coverage |
 
 ## Checkpoint
 
