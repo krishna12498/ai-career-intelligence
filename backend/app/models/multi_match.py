@@ -33,6 +33,20 @@ class MultiMatchJobResult(BaseModel):
     match_report: MatchReport | None = None
     status: Literal["completed", "failed"]
     errors: list[str] = Field(default_factory=list)
+    rank: int | None = None
+    ranking_score: float | None = None
+    ranking_metadata: "RankingMetadata | None" = None
+
+
+class RankingMetadata(BaseModel):
+    overall_match: float
+    skills_match: float
+    readiness_score: float
+    required_skill_coverage: float
+    required_skill_count: int = Field(ge=0)
+    preferred_skill_count: int = Field(ge=0)
+    provisional: bool
+    input_position: int = Field(ge=0)
 
 
 class MultiMatchSummary(BaseModel):
@@ -45,3 +59,4 @@ class MultiMatchResponse(BaseModel):
     analysis_id: UUID
     results: list[MultiMatchJobResult]
     summary: MultiMatchSummary
+    ranked_job_ids: list[str] = Field(default_factory=list)
