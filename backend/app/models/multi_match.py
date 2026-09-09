@@ -83,6 +83,22 @@ class CrossJobGapAnalysis(BaseModel):
     partial_occurrence_count: int = Field(default=0, ge=0)
 
 
+class TargetRecommendation(BaseModel):
+    status: Literal["recommended", "no_completed_jobs"]
+    selected_job_id: str | None = None
+    selected_label: str | None = None
+    selected_rank: int | None = None
+    selected_score: float | None = None
+    selected_readiness_score: float | None = None
+    selected_required_skill_coverage: float | None = None
+    provisional: bool = False
+    reason_codes: list[str] = Field(default_factory=list)
+    tied_job_ids: list[str] = Field(default_factory=list)
+    completed_count: int = Field(ge=0)
+    failed_count: int = Field(ge=0)
+    scope_note: str
+
+
 class MultiMatchSummary(BaseModel):
     requested: int = Field(ge=0)
     completed: int = Field(ge=0)
@@ -95,3 +111,4 @@ class MultiMatchResponse(BaseModel):
     summary: MultiMatchSummary
     ranked_job_ids: list[str] = Field(default_factory=list)
     gap_analysis: CrossJobGapAnalysis
+    target_recommendation: TargetRecommendation

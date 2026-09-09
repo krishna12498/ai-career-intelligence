@@ -16,6 +16,7 @@ from backend.app.services.job_analyzer import analyze_job_description
 from backend.app.services.match_service import generate_match_report
 from backend.app.services.readiness_service import calculate_readiness
 from backend.app.services.resume_service import parse_resume_text
+from backend.app.services.target_recommendation_service import recommend_target
 
 
 SAFE_ANALYSIS_ERROR = "Job analysis could not be completed."
@@ -177,6 +178,7 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
                 failed=len(request.jobs),
             ),
             gap_analysis=CrossJobGapAnalysis(),
+            target_recommendation=recommend_target([], []),
         )
         return response
 
@@ -218,7 +220,9 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
             failed=failed,
         ),
         gap_analysis=CrossJobGapAnalysis(),
+        target_recommendation=recommend_target([], []),
     )
     response.ranked_job_ids = _rank_results(response.results)
     response.gap_analysis = _aggregate_gaps(response.results)
+    response.target_recommendation = recommend_target(response.results, response.ranked_job_ids)
     return response
