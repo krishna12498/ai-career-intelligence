@@ -69,6 +69,32 @@ type RoadmapResult = {
   grounding_policy: string
 }
 
+type OptimizationEvidence = {
+  source_type: string
+  source_text: string
+  source_section?: string
+  support: string
+}
+
+type OptimizationSuggestion = {
+  id: string
+  section: string
+  operation: string
+  original_text?: string
+  proposed_text: string
+  evidence: OptimizationEvidence[]
+  status: string
+  risk_flags: string[]
+  grounding_note: string
+}
+
+type OptimizationResult = {
+  base_version_id: string
+  target_role: string
+  grounding_policy: string
+  suggestions: OptimizationSuggestion[]
+}
+
 type AdvisorResult = {
   explanation: string
   resource?: { title: string; url: string; level: string }
@@ -113,6 +139,7 @@ function App() {
   const [match, setMatch] = useState<MatchResult | null>(null)
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null)
   const [roadmap, setRoadmap] = useState<RoadmapResult | null>(null)
+  const [optimization, setOptimization] = useState<OptimizationResult | null>(null)
   const [advisor, setAdvisor] = useState<AdvisorResult | null>(null)
   const [improvement, setImprovement] = useState<ImprovementResult | null>(null)
   const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestion[]>([])
@@ -124,12 +151,14 @@ function App() {
   const [improvementLoading, setImprovementLoading] = useState(false)
   const [interviewLoading, setInterviewLoading] = useState(false)
   const [roadmapLoading, setRoadmapLoading] = useState(false)
+  const [optimizationLoading, setOptimizationLoading] = useState(false)
   const [evaluationLoading, setEvaluationLoading] = useState(false)
   const [error, setError] = useState('')
   const [advisorError, setAdvisorError] = useState('')
   const [improvementError, setImprovementError] = useState('')
   const [interviewError, setInterviewError] = useState('')
   const [roadmapError, setRoadmapError] = useState('')
+  const [optimizationError, setOptimizationError] = useState('')
 
   const runMatch = async () => {
     if (resume.trim().length < 50 || job.trim().length < 30) {
@@ -140,6 +169,7 @@ function App() {
     setError('')
     setReadiness(null)
     setRoadmap(null)
+    setOptimization(null)
     setAdvisor(null)
     setAdvisorError('')
     setImprovement(null)
@@ -150,6 +180,7 @@ function App() {
     setAnswer('')
     setInterviewError('')
     setRoadmapError('')
+    setOptimizationError('')
     try {
       const response = await fetch(`${API_BASE}/api/match/from-text`, {
         method: 'POST',
@@ -190,6 +221,24 @@ function App() {
       setRoadmapError(requestError instanceof Error ? requestError.message : 'Could not build the learning roadmap.')
     } finally {
       setRoadmapLoading(false)
+    }
+  }
+
+  const buildOptimizationSuggestions = async () => {
+    setOptimizationLoading(true)
+    setOptimizationError('')
+    try {
+      const response = await fetch(`${API_BASE}/api/resume/optimization/suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ master_resume_text: resume, job_description: job, base_version_id: 'master', use_semantic: false }),
+      })
+      if (!response.ok) throw new Error('Could not build resume optimization suggestions.')
+      setOptimization(await response.json())
+    } catch (requestError) {
+      setOptimizationError(requestError instanceof Error ? requestError.message : 'Could not build resume optimization suggestions.')
+    } finally {
+      setOptimizationLoading(false)
     }
   }
 
@@ -275,8 +324,10 @@ function App() {
     setMatch(null)
     setReadiness(null)
     setRoadmap(null)
+    setOptimization(null)
     setError('')
     setRoadmapError('')
+    setOptimizationError('')
   }
 
   return (
@@ -324,6 +375,12 @@ function App() {
           {roadmapError && <p className="advisor-error" role="alert">{roadmapError}</p>}
           {roadmap && <><p className="grounding-policy">{roadmap.grounding_policy}</p><div className="roadmap-list">{roadmap.items.map((item) => <article className="roadmap-item" key={`${item.order}-${item.skill}`}><div className="roadmap-meta"><span>{item.horizon}</span><b>{item.priority}</b></div><h4>{item.skill}</h4><p>{item.reason}</p>{item.resource ? <div className="roadmap-resource"><strong>{item.resource.title}</strong><span>{item.resource.level} · {item.resource.source}</span><p>{item.resource.summary}</p><a href={item.resource.url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">-&gt;</span></a></div> : <p className="advisor-muted">{item.grounding_note}</p>}</article>)}</div>{roadmap.items.length === 0 && <p className="advisor-muted">No prioritized gaps were identified for a roadmap.</p>}</>}
           {!roadmap && !roadmapError && <p className="advisor-muted">Build a grounded 30, 60, and 90-day sequence from the prioritized gaps above.</p>}
+        </section>
+        <section className="optimization-panel" aria-label="Resume optimization suggestions">
+          <div className="results-header"><div><p className="eyebrow">V3.3 review mode</p><h3>Shape a role-specific resume version</h3></div><button className="text-button" type="button" onClick={buildOptimizationSuggestions} disabled={optimizationLoading}>{optimizationLoading ? 'Reviewing...' : 'Review suggestions -&gt;'}</button></div>
+          {optimizationError && <p className="advisor-error" role="alert">{optimizationError}</p>}
+          {optimization && <><p className="grounding-policy">{optimization.grounding_policy}</p><div className="optimization-list">{optimization.suggestions.map((suggestion) => <article className="optimization-item" key={suggestion.id}><div className="optimization-meta"><span>{suggestion.section} · {suggestion.operation}</span><b className={`optimization-status ${suggestion.status}`}>{suggestion.status}</b></div>{suggestion.original_text && <div className="optimization-copy"><small>Existing text</small><p>{suggestion.original_text}</p></div>}<div className="optimization-copy proposed"><small>{suggestion.original_text ? 'Proposed text' : 'Review action'}</small><p>{suggestion.proposed_text}</p></div>{suggestion.evidence.length > 0 && <div className="optimization-evidence"><small>Evidence</small>{suggestion.evidence.map((evidence) => <p key={`${suggestion.id}-${evidence.source_text}`}>{evidence.source_text} <span>({evidence.support})</span></p>)}</div>}<small className="optimization-note">{suggestion.grounding_note}</small></article>)}</div>{optimization.suggestions.length === 0 && <p className="advisor-muted">No deterministic suggestions were found.</p>}</>}
+          {!optimization && !optimizationError && <p className="advisor-muted">Review fact-preserving wording and evidence alignment before creating a tailored version. Nothing is changed automatically.</p>}
         </section>
         <div className="detail-grid"><SkillColumn title="Strong signals" skills={match.strong_skills} tone="strong" /><SkillColumn title="Build confidence" skills={match.partial_skills} tone="partial" /><SkillColumn title="Priority gaps" skills={match.missing_skills} tone="missing" onSkillClick={explainGap} /></div>
         <div className="advisor-panel"><div className="advisor-heading"><span className="advisor-icon">+</span><div><p className="eyebrow">Next move</p><h3>Turn a gap into momentum</h3></div></div>{advisorLoading && <p className="advisor-muted">Advisor is reading the role and your background...</p>}{!advisorLoading && advisorError && <p className="advisor-error" role="alert">{advisorError}</p>}{!advisorLoading && !advisorError && !advisor && <p className="advisor-muted">Select a priority gap above to get a grounded learning plan from your local advisor.</p>}{advisor && <div className="advisor-copy"><p>{advisor.explanation}</p>{advisor.resource && <a href={advisor.resource.url} target="_blank" rel="noreferrer">Open {advisor.resource.title} <span aria-hidden="true">-&gt;</span></a>}</div>}</div>
