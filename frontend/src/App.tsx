@@ -35,6 +35,22 @@ type MatchResult = {
   missing_skills: string[]
 }
 
+type ReadinessBlocker = {
+  skill: string
+  status: string
+  reason: string
+}
+
+type ReadinessResult = {
+  readiness_score: number
+  required_skill_coverage: number
+  experience_evidence: number
+  project_evidence: number
+  blockers: ReadinessBlocker[]
+  reasons: string[]
+  scope_note: string
+}
+
 type AdvisorResult = {
   explanation: string
   resource?: { title: string; url: string; level: string }
@@ -77,6 +93,7 @@ function App() {
   const [resume, setResume] = useState('')
   const [job, setJob] = useState('')
   const [match, setMatch] = useState<MatchResult | null>(null)
+  const [readiness, setReadiness] = useState<ReadinessResult | null>(null)
   const [advisor, setAdvisor] = useState<AdvisorResult | null>(null)
   const [improvement, setImprovement] = useState<ImprovementResult | null>(null)
   const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestion[]>([])
@@ -100,6 +117,7 @@ function App() {
     }
     setLoading(true)
     setError('')
+    setReadiness(null)
     setAdvisor(null)
     setAdvisorError('')
     setImprovement(null)
@@ -116,7 +134,16 @@ function App() {
         body: JSON.stringify({ resume_text: resume, job_description: job, use_semantic: true }),
       })
       if (!response.ok) throw new Error('The matching service could not process these inputs.')
-      setMatch(await response.json())
+      const matchResult: MatchResult = await response.json()
+      setMatch(matchResult)
+
+      const readinessResponse = await fetch(`${API_BASE}/api/readiness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match_report: matchResult }),
+      })
+      if (!readinessResponse.ok) throw new Error('Could not calculate job readiness.')
+      setReadiness(await readinessResponse.json())
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Something went wrong.')
     } finally {
@@ -204,6 +231,7 @@ function App() {
     setResume(demoResume)
     setJob(demoJob)
     setMatch(null)
+    setReadiness(null)
     setError('')
   }
 
@@ -242,6 +270,11 @@ function App() {
           <div className="score-card"><div className="score-ring" style={{ '--score': `${match.overall_match * 3.6}deg` } as React.CSSProperties}><strong>{Math.round(match.overall_match)}<small>%</small></strong></div><p>Overall match</p><span>Based on skills, relevance, and context</span></div>
           <div className="signal-grid"><Signal label="Skills match" value={match.skills_match} /><Signal label="Project relevance" value={match.project_relevance} /><Signal label="Experience relevance" value={match.experience_relevance} /><Signal label="Education match" value={match.education_match} /></div>
         </div>
+        {readiness && <section className="readiness-panel" aria-label="Job readiness">
+          <div className="readiness-heading"><div><p className="eyebrow">V3.1 readiness</p><h3>How prepared are you for this role?</h3><p className="readiness-note">Resume evidence only, not a hiring-probability estimate.</p></div><strong className="readiness-score">{Math.round(readiness.readiness_score)}<small>%</small></strong></div>
+          <div className="readiness-components"><Signal label="Required skills" value={readiness.required_skill_coverage} /><Signal label="Experience evidence" value={readiness.experience_evidence} /><Signal label="Project evidence" value={readiness.project_evidence} /></div>
+          <div className="readiness-bottom"><div><p className="readiness-label">What shaped the score</p>{readiness.reasons.map((reason) => <p className="readiness-reason" key={reason}>{reason}</p>)}</div><div><p className="readiness-label">Readiness blockers</p>{readiness.blockers.length ? <ul className="blocker-list">{readiness.blockers.map((blocker) => <li key={blocker.skill}><strong>{blocker.skill}</strong><span>{blocker.status} - {blocker.reason}</span></li>)}</ul> : <p className="readiness-reason">No required-skill blockers identified.</p>}</div></div>
+        </section>}
         <div className="detail-grid"><SkillColumn title="Strong signals" skills={match.strong_skills} tone="strong" /><SkillColumn title="Build confidence" skills={match.partial_skills} tone="partial" /><SkillColumn title="Priority gaps" skills={match.missing_skills} tone="missing" onSkillClick={explainGap} /></div>
         <div className="advisor-panel"><div className="advisor-heading"><span className="advisor-icon">+</span><div><p className="eyebrow">Next move</p><h3>Turn a gap into momentum</h3></div></div>{advisorLoading && <p className="advisor-muted">Advisor is reading the role and your background...</p>}{!advisorLoading && advisorError && <p className="advisor-error" role="alert">{advisorError}</p>}{!advisorLoading && !advisorError && !advisor && <p className="advisor-muted">Select a priority gap above to get a grounded learning plan from your local advisor.</p>}{advisor && <div className="advisor-copy"><p>{advisor.explanation}</p>{advisor.resource && <a href={advisor.resource.url} target="_blank" rel="noreferrer">Open {advisor.resource.title} <span aria-hidden="true">-&gt;</span></a>}</div>}</div>
           <div className="improvement-panel"><div className="results-header"><div><p className="eyebrow">V2 workflow</p><h3>Improve this application</h3></div><button className="text-button" type="button" onClick={buildImprovementPlan} disabled={improvementLoading}>{improvementLoading ? 'Building...' : 'Build plan -&gt;'}</button></div>{improvementError && <p className="advisor-error" role="alert">{improvementError}</p>}{improvement && <><p className="grounding-policy">{improvement.grounding_policy}</p><div className="suggestion-list">{improvement.suggestions.map((suggestion, index) => <article className="suggestion" key={`${suggestion.title}-${index}`}><div className="suggestion-meta"><span>{suggestion.category}</span><b>{suggestion.priority}</b></div><h4>{suggestion.title}</h4><p>{suggestion.action}</p>{suggestion.evidence.length > 0 && <small>Evidence: {suggestion.evidence.join(', ')}</small>}</article>)}</div></>}{!improvement && !improvementError && <p className="advisor-muted">Generate specific, fact-checked resume changes from this analysis.</p>}</div>
