@@ -9,6 +9,7 @@ from backend.app.api.advisor import router as advisor_router
 from backend.app.api.improvement import router as improvement_router
 from backend.app.api.interview import router as interview_router
 from backend.app.api.readiness import router as readiness_router
+from backend.app.api.roadmap import router as roadmap_router
 from backend.app.config import settings
 
 app = FastAPI(
@@ -33,6 +34,7 @@ app.include_router(advisor_router, prefix="/api")
 app.include_router(improvement_router, prefix="/api")
 app.include_router(interview_router, prefix="/api")
 app.include_router(readiness_router, prefix="/api")
+app.include_router(roadmap_router, prefix="/api")
 
 
 @app.get("/")

@@ -33,6 +33,7 @@ type MatchResult = {
   strong_skills: string[]
   partial_skills: string[]
   missing_skills: string[]
+  recommended_priority: string[]
 }
 
 type ReadinessBlocker = {
@@ -49,6 +50,23 @@ type ReadinessResult = {
   blockers: ReadinessBlocker[]
   reasons: string[]
   scope_note: string
+}
+
+type RoadmapItem = {
+  order: number
+  horizon: string
+  skill: string
+  priority: string
+  status?: string
+  reason: string
+  resource?: { title: string; summary: string; level: string; url: string; source: string }
+  grounding_note: string
+}
+
+type RoadmapResult = {
+  items: RoadmapItem[]
+  source: string
+  grounding_policy: string
 }
 
 type AdvisorResult = {
@@ -94,6 +112,7 @@ function App() {
   const [job, setJob] = useState('')
   const [match, setMatch] = useState<MatchResult | null>(null)
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null)
+  const [roadmap, setRoadmap] = useState<RoadmapResult | null>(null)
   const [advisor, setAdvisor] = useState<AdvisorResult | null>(null)
   const [improvement, setImprovement] = useState<ImprovementResult | null>(null)
   const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestion[]>([])
@@ -104,11 +123,13 @@ function App() {
   const [advisorLoading, setAdvisorLoading] = useState(false)
   const [improvementLoading, setImprovementLoading] = useState(false)
   const [interviewLoading, setInterviewLoading] = useState(false)
+  const [roadmapLoading, setRoadmapLoading] = useState(false)
   const [evaluationLoading, setEvaluationLoading] = useState(false)
   const [error, setError] = useState('')
   const [advisorError, setAdvisorError] = useState('')
   const [improvementError, setImprovementError] = useState('')
   const [interviewError, setInterviewError] = useState('')
+  const [roadmapError, setRoadmapError] = useState('')
 
   const runMatch = async () => {
     if (resume.trim().length < 50 || job.trim().length < 30) {
@@ -118,6 +139,7 @@ function App() {
     setLoading(true)
     setError('')
     setReadiness(null)
+    setRoadmap(null)
     setAdvisor(null)
     setAdvisorError('')
     setImprovement(null)
@@ -127,6 +149,7 @@ function App() {
     setInterviewEvaluation(null)
     setAnswer('')
     setInterviewError('')
+    setRoadmapError('')
     try {
       const response = await fetch(`${API_BASE}/api/match/from-text`, {
         method: 'POST',
@@ -148,6 +171,25 @@ function App() {
       setError(requestError instanceof Error ? requestError.message : 'Something went wrong.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const buildRoadmap = async () => {
+    if (!match) return
+    setRoadmapLoading(true)
+    setRoadmapError('')
+    try {
+      const response = await fetch(`${API_BASE}/api/roadmap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match_report: match, candidate_context: resume.slice(0, 4000), max_items: 6 }),
+      })
+      if (!response.ok) throw new Error('Could not build the learning roadmap.')
+      setRoadmap(await response.json())
+    } catch (requestError) {
+      setRoadmapError(requestError instanceof Error ? requestError.message : 'Could not build the learning roadmap.')
+    } finally {
+      setRoadmapLoading(false)
     }
   }
 
@@ -232,7 +274,9 @@ function App() {
     setJob(demoJob)
     setMatch(null)
     setReadiness(null)
+    setRoadmap(null)
     setError('')
+    setRoadmapError('')
   }
 
   return (
@@ -275,6 +319,12 @@ function App() {
           <div className="readiness-components"><Signal label="Required skills" value={readiness.required_skill_coverage} /><Signal label="Experience evidence" value={readiness.experience_evidence} /><Signal label="Project evidence" value={readiness.project_evidence} /></div>
           <div className="readiness-bottom"><div><p className="readiness-label">What shaped the score</p>{readiness.reasons.map((reason) => <p className="readiness-reason" key={reason}>{reason}</p>)}</div><div><p className="readiness-label">Readiness blockers</p>{readiness.blockers.length ? <ul className="blocker-list">{readiness.blockers.map((blocker) => <li key={blocker.skill}><strong>{blocker.skill}</strong><span>{blocker.status} - {blocker.reason}</span></li>)}</ul> : <p className="readiness-reason">No required-skill blockers identified.</p>}</div></div>
         </section>}
+        <section className="roadmap-panel" aria-label="Personalized learning roadmap">
+          <div className="results-header"><div><p className="eyebrow">V3.2 roadmap</p><h3>Turn priority gaps into a learning sequence</h3></div><button className="text-button" type="button" onClick={buildRoadmap} disabled={roadmapLoading || !match.recommended_priority}>{roadmapLoading ? 'Building...' : 'Build roadmap -&gt;'}</button></div>
+          {roadmapError && <p className="advisor-error" role="alert">{roadmapError}</p>}
+          {roadmap && <><p className="grounding-policy">{roadmap.grounding_policy}</p><div className="roadmap-list">{roadmap.items.map((item) => <article className="roadmap-item" key={`${item.order}-${item.skill}`}><div className="roadmap-meta"><span>{item.horizon}</span><b>{item.priority}</b></div><h4>{item.skill}</h4><p>{item.reason}</p>{item.resource ? <div className="roadmap-resource"><strong>{item.resource.title}</strong><span>{item.resource.level} · {item.resource.source}</span><p>{item.resource.summary}</p><a href={item.resource.url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">-&gt;</span></a></div> : <p className="advisor-muted">{item.grounding_note}</p>}</article>)}</div>{roadmap.items.length === 0 && <p className="advisor-muted">No prioritized gaps were identified for a roadmap.</p>}</>}
+          {!roadmap && !roadmapError && <p className="advisor-muted">Build a grounded 30, 60, and 90-day sequence from the prioritized gaps above.</p>}
+        </section>
         <div className="detail-grid"><SkillColumn title="Strong signals" skills={match.strong_skills} tone="strong" /><SkillColumn title="Build confidence" skills={match.partial_skills} tone="partial" /><SkillColumn title="Priority gaps" skills={match.missing_skills} tone="missing" onSkillClick={explainGap} /></div>
         <div className="advisor-panel"><div className="advisor-heading"><span className="advisor-icon">+</span><div><p className="eyebrow">Next move</p><h3>Turn a gap into momentum</h3></div></div>{advisorLoading && <p className="advisor-muted">Advisor is reading the role and your background...</p>}{!advisorLoading && advisorError && <p className="advisor-error" role="alert">{advisorError}</p>}{!advisorLoading && !advisorError && !advisor && <p className="advisor-muted">Select a priority gap above to get a grounded learning plan from your local advisor.</p>}{advisor && <div className="advisor-copy"><p>{advisor.explanation}</p>{advisor.resource && <a href={advisor.resource.url} target="_blank" rel="noreferrer">Open {advisor.resource.title} <span aria-hidden="true">-&gt;</span></a>}</div>}</div>
           <div className="improvement-panel"><div className="results-header"><div><p className="eyebrow">V2 workflow</p><h3>Improve this application</h3></div><button className="text-button" type="button" onClick={buildImprovementPlan} disabled={improvementLoading}>{improvementLoading ? 'Building...' : 'Build plan -&gt;'}</button></div>{improvementError && <p className="advisor-error" role="alert">{improvementError}</p>}{improvement && <><p className="grounding-policy">{improvement.grounding_policy}</p><div className="suggestion-list">{improvement.suggestions.map((suggestion, index) => <article className="suggestion" key={`${suggestion.title}-${index}`}><div className="suggestion-meta"><span>{suggestion.category}</span><b>{suggestion.priority}</b></div><h4>{suggestion.title}</h4><p>{suggestion.action}</p>{suggestion.evidence.length > 0 && <small>Evidence: {suggestion.evidence.join(', ')}</small>}</article>)}</div></>}{!improvement && !improvementError && <p className="advisor-muted">Generate specific, fact-checked resume changes from this analysis.</p>}</div>
