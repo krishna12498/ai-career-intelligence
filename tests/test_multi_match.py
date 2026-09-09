@@ -1,10 +1,10 @@
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app.models.match import MatchReport
+from backend.app.models.match import MatchReport, MatchStatus, SkillMatchResult
 from backend.app.models.multi_match import MultiMatchJobResult
 from backend.app.services import multi_match_service
-from backend.app.services.multi_match_service import _rank_results
+from backend.app.services.multi_match_service import _aggregate_gaps, _rank_results
 from tests.fixtures.sample_resume import SAMPLE_RESUME_TEXT
 
 
@@ -217,3 +217,98 @@ def test_mixed_api_response_exposes_original_order_and_ranked_ids(monkeypatch):
     assert [result["job_id"] for result in data["results"]] == ["job-one", "job-two", "job-three"]
     assert data["ranked_job_ids"] == ["job-one", "job-three"]
     assert [result["rank"] for result in data["results"]] == [1, None, 2]
+
+
+def gap_result(job_id, matches, *, status="completed"):
+    report = MatchReport(
+        overall_match=80,
+        skills_match=70,
+        project_relevance=50,
+        experience_relevance=40,
+        education_match=0,
+        semantic_similarity=30,
+        matches=matches,
+    ) if status == "completed" else None
+    return MultiMatchJobResult(job_id=job_id, label=f"Label {job_id}", status=status, match_report=report)
+
+
+def skill_match(skill, match_type, status, *, candidate=None):
+    similarity = {MatchStatus.MISSING: 0, MatchStatus.PARTIAL: 0.6, MatchStatus.STRONG: 1}[status]
+    return SkillMatchResult(
+        job_skill=skill,
+        candidate_skill=candidate,
+        similarity=similarity,
+        match_type=match_type,
+        status=status,
+        score_percent=round(similarity * 100),
+    )
+
+
+def test_gap_aggregation_normalizes_and_preserves_status_provenance():
+    results = [
+        gap_result("job-one", [
+            skill_match(" SQL ", "required", MatchStatus.MISSING),
+            skill_match("SQL", "required", MatchStatus.MISSING),
+            skill_match("SQL", "required", MatchStatus.STRONG, candidate="SQL"),
+            skill_match("SQL", "preferred", MatchStatus.MISSING),
+        ]),
+        gap_result("job-two", [
+            skill_match("sql", "required", MatchStatus.STRONG, candidate="PostgreSQL"),
+        ]),
+        gap_result("failed", [skill_match("SQL", "required", MatchStatus.MISSING)], status="failed"),
+    ]
+
+    analysis = _aggregate_gaps(results)
+
+    required = next(gap for gap in analysis.gaps if gap.match_type == "required")
+    preferred = next(gap for gap in analysis.gaps if gap.match_type == "preferred")
+    assert required.skill == "SQL"
+    assert required.normalized_skill == "sql"
+    assert required.job_count == 2
+    assert required.missing_count == 1
+    assert required.strong_count == 2
+    assert required.missing_job_ids == ["job-one"]
+    assert {occurrence.job_id for occurrence in required.occurrences} == {"job-one", "job-two"}
+    assert preferred.job_count == 1
+    assert preferred.missing_job_ids == ["job-one"]
+    assert "failed" not in analysis.completed_job_ids
+    assert all(occurrence.job_id != "failed" for gap in analysis.gaps for occurrence in gap.occurrences)
+
+
+def test_gap_aggregation_keeps_required_and_preferred_separate_and_orders_priority():
+    results = [
+        gap_result("job-one", [
+            skill_match("Docker", "preferred", MatchStatus.PARTIAL),
+            skill_match("AWS", "required", MatchStatus.PARTIAL),
+            skill_match("SQL", "required", MatchStatus.MISSING),
+        ]),
+        gap_result("job-two", [
+            skill_match("Docker", "required", MatchStatus.MISSING),
+            skill_match("AWS", "preferred", MatchStatus.MISSING),
+        ]),
+    ]
+
+    analysis = _aggregate_gaps(results)
+
+    assert [(gap.match_type, gap.skill) for gap in analysis.gaps] == [
+        ("required", "SQL"),
+        ("required", "Docker"),
+        ("required", "AWS"),
+        ("preferred", "AWS"),
+        ("preferred", "Docker"),
+    ]
+    assert analysis.required_gap_count == 3
+    assert analysis.preferred_gap_count == 2
+    assert analysis.missing_occurrence_count == 3
+    assert analysis.partial_occurrence_count == 2
+
+
+def test_gap_aggregation_handles_empty_and_all_failed_jobs():
+    empty = _aggregate_gaps([gap_result("empty", [])])
+    failed = _aggregate_gaps([gap_result("failed", [], status="failed")])
+
+    assert empty.gaps == []
+    assert empty.completed_job_ids == ["empty"]
+    assert failed.gaps == []
+    assert failed.completed_job_ids == []
+    assert failed.missing_occurrence_count == 0
