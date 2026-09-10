@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 from backend.app.models.application_strategy import ApplicationStrategyResponse
 from backend.app.models.job import JobDescriptionResponse
 from backend.app.models.match import MatchReport, MatchStatus
+from backend.app.models.target_action_package import TargetActionPackageResponse
 
 
 class MultiJobInput(BaseModel):
@@ -114,3 +115,4 @@ class MultiMatchResponse(BaseModel):
     gap_analysis: CrossJobGapAnalysis
     target_recommendation: TargetRecommendation
     application_strategy: ApplicationStrategyResponse | None = None
+    target_action_package: TargetActionPackageResponse | None = None

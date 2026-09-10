@@ -17,6 +17,7 @@ from backend.app.services.job_analyzer import analyze_job_description
 from backend.app.services.match_service import generate_match_report
 from backend.app.services.readiness_service import calculate_readiness
 from backend.app.services.resume_service import parse_resume_text
+from backend.app.services.target_action_package_service import generate_target_action_package
 from backend.app.services.target_recommendation_service import recommend_target
 
 SAFE_ANALYSIS_ERROR = "Job analysis could not be completed."
@@ -216,6 +217,7 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
     failed = len(results) - completed
     rec = recommend_target([], [])
     gap_a = CrossJobGapAnalysis()
+    app_strat = generate_application_strategy([], gap_a, rec)
     response = MultiMatchResponse(
         analysis_id=uuid4(),
         results=results,
@@ -226,12 +228,16 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
         ),
         gap_analysis=gap_a,
         target_recommendation=rec,
-        application_strategy=generate_application_strategy([], gap_a, rec),
+        application_strategy=app_strat,
+        target_action_package=generate_target_action_package([], gap_a, rec, app_strat),
     )
     response.ranked_job_ids = _rank_results(response.results)
     response.gap_analysis = _aggregate_gaps(response.results)
     response.target_recommendation = recommend_target(response.results, response.ranked_job_ids)
     response.application_strategy = generate_application_strategy(
         response.results, response.gap_analysis, response.target_recommendation
+    )
+    response.target_action_package = generate_target_action_package(
+        response.results, response.gap_analysis, response.target_recommendation, response.application_strategy
     )
     return response
