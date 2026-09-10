@@ -12,12 +12,12 @@ from backend.app.models.multi_match import (
     MultiMatchSummary,
     RankingMetadata,
 )
+from backend.app.services.application_strategy_service import generate_application_strategy
 from backend.app.services.job_analyzer import analyze_job_description
 from backend.app.services.match_service import generate_match_report
 from backend.app.services.readiness_service import calculate_readiness
 from backend.app.services.resume_service import parse_resume_text
 from backend.app.services.target_recommendation_service import recommend_target
-
 
 SAFE_ANALYSIS_ERROR = "Job analysis could not be completed."
 
@@ -161,6 +161,8 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
     try:
         resume = parse_resume_text(request.resume_text)
     except Exception:
+        rec = recommend_target([], [])
+        gap_a = CrossJobGapAnalysis()
         response = MultiMatchResponse(
             analysis_id=uuid4(),
             results=[
@@ -177,8 +179,9 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
                 completed=0,
                 failed=len(request.jobs),
             ),
-            gap_analysis=CrossJobGapAnalysis(),
-            target_recommendation=recommend_target([], []),
+            gap_analysis=gap_a,
+            target_recommendation=rec,
+            application_strategy=generate_application_strategy([], gap_a, rec),
         )
         return response
 
@@ -211,6 +214,8 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
 
     completed = sum(result.status == "completed" for result in results)
     failed = len(results) - completed
+    rec = recommend_target([], [])
+    gap_a = CrossJobGapAnalysis()
     response = MultiMatchResponse(
         analysis_id=uuid4(),
         results=results,
@@ -219,10 +224,14 @@ def analyze_multiple_jobs(request: MultiMatchRequest) -> MultiMatchResponse:
             completed=completed,
             failed=failed,
         ),
-        gap_analysis=CrossJobGapAnalysis(),
-        target_recommendation=recommend_target([], []),
+        gap_analysis=gap_a,
+        target_recommendation=rec,
+        application_strategy=generate_application_strategy([], gap_a, rec),
     )
     response.ranked_job_ids = _rank_results(response.results)
     response.gap_analysis = _aggregate_gaps(response.results)
     response.target_recommendation = recommend_target(response.results, response.ranked_job_ids)
+    response.application_strategy = generate_application_strategy(
+        response.results, response.gap_analysis, response.target_recommendation
+    )
     return response

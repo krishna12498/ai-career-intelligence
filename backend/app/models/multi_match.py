@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from backend.app.models.application_strategy import ApplicationStrategyResponse
 from backend.app.models.job import JobDescriptionResponse
 from backend.app.models.match import MatchReport, MatchStatus
 
@@ -112,3 +113,4 @@ class MultiMatchResponse(BaseModel):
     ranked_job_ids: list[str] = Field(default_factory=list)
     gap_analysis: CrossJobGapAnalysis
     target_recommendation: TargetRecommendation
+    application_strategy: ApplicationStrategyResponse | None = None
